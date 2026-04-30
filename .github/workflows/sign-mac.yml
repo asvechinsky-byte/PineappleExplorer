@@ -1,4 +1,3 @@
-cat << 'EOF'
 name: Sign & Notarize Mac Build
 
 on:
@@ -92,4 +91,3 @@ jobs:
         with:
           name: PineappleExplorer-mac-signed
           path: PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip
-EOF
