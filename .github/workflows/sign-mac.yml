@@ -39,7 +39,7 @@ jobs:
 
       - name: Extract, sign, and notarize
         env:
-          TEAM_ID: U66JCS85MM
+          TEAM_ID: U66JC585MM
           KEY_ID: HY39BF4WZT
           ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
