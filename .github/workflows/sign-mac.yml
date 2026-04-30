@@ -50,10 +50,10 @@ jobs:
 
           # Sign all binaries inside the bundle first, then the bundle itself
           find "$APP/Contents/MacOS" -type f | while read f; do
-            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f"
+            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
           done
-          find "$APP/Contents" -name "*.dylib" -o -name "*.so" | while read f; do
-            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f"
+          find "$APP/Contents" \( -name "*.dylib" -o -name "*.so" \) -type f | while read f; do
+            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
           done
           codesign --force --deep --options runtime \
             --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" \
