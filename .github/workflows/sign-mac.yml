@@ -65,6 +65,10 @@ jobs:
           find "$APP" -name "._*" -delete
           find "$APP" -name ".DS_Store" -delete
 
+          # Restore executable bit lost when zip was built on Windows
+          chmod +x "$APP/Contents/MacOS/PineappleExplorer"
+          find "$APP/Contents/MacOS" -name "*.dylib" -exec chmod +x {} \;
+
           find "$APP" -type f | while read f; do
             if file "$f" 2>/dev/null | grep -q "Mach-O"; then
               codesign --force --options runtime --entitlements entitlements.plist \
