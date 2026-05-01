@@ -108,6 +108,12 @@ jobs:
           done
 
       # ── Velopack packaging (nupkgs for auto-update) ──────────────────────
+      # vpk 0.0.1298 targets net9.0 — the runner ships .NET 8, so install 9 first.
+      - name: Install .NET 9 SDK (required by vpk)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.x'
+
       - name: Install vpk
         run: dotnet tool install -g vpk
 
