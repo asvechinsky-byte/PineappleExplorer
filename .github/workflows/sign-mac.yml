@@ -80,7 +80,25 @@ jobs:
             --key ~/private_keys/AuthKey_HY39BF4WZT.p8 \
             --key-id "$KEY_ID" \
             --issuer "$ISSUER_ID" \
-            --wait
+            --wait \
+            --output-format json > notarize_result.json || true
+
+          cat notarize_result.json
+
+          SUBMISSION_ID=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['id'])")
+          NOTARIZE_STATUS=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['status'])")
+
+          echo "=== Apple Notarization Log ==="
+          xcrun notarytool log "$SUBMISSION_ID" \
+            --key ~/private_keys/AuthKey_HY39BF4WZT.p8 \
+            --key-id "$KEY_ID" \
+            --issuer "$ISSUER_ID" || true
+
+          if [ "$NOTARIZE_STATUS" != "Accepted" ]; then
+            echo "Notarization failed: $NOTARIZE_STATUS"
+            exit 1
+          fi
+
 
           xcrun stapler staple "$APP"
 
