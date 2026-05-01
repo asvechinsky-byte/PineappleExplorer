@@ -61,6 +61,10 @@ jobs:
           </plist>
           PLIST
 
+          # Remove macOS resource fork and DS_Store artifacts before signing
+          find "$APP" -name "._*" -delete
+          find "$APP" -name ".DS_Store" -delete
+
           find "$APP" -type f | while read f; do
             if file "$f" 2>/dev/null | grep -q "Mach-O"; then
               codesign --force --options runtime --entitlements entitlements.plist \
@@ -98,7 +102,6 @@ jobs:
             echo "Notarization failed: $NOTARIZE_STATUS"
             exit 1
           fi
-
 
           xcrun stapler staple "$APP"
 
