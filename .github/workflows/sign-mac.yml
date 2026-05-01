@@ -61,11 +61,11 @@ jobs:
           </plist>
           PLIST
 
-          find "$APP/Contents/MacOS" -type f | while read f; do
-            codesign --force --options runtime --entitlements entitlements.plist --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
-          done
-          find "$APP/Contents" \( -name "*.dylib" -o -name "*.so" \) -type f | while read f; do
-            codesign --force --options runtime --entitlements entitlements.plist --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
+          find "$APP" -type f | while read f; do
+            if file "$f" 2>/dev/null | grep -q "Mach-O"; then
+              codesign --force --options runtime --entitlements entitlements.plist \
+                --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
+            fi
           done
           codesign --force --deep --options runtime --entitlements entitlements.plist \
             --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" \
