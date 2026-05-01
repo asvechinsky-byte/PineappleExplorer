@@ -43,40 +43,47 @@ jobs:
           KEY_ID: HY39BF4WZT
           ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
-          # Extract
           unzip -q unsigned.zip -d app_extracted
-
           APP="app_extracted/PineappleExplorer.app"
 
-          # Sign all binaries inside the bundle first, then the bundle itself
+          cat > entitlements.plist << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          PLIST
+
           find "$APP/Contents/MacOS" -type f | while read f; do
-            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
+            codesign --force --options runtime --entitlements entitlements.plist --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
           done
           find "$APP/Contents" \( -name "*.dylib" -o -name "*.so" \) -type f | while read f; do
-            codesign --force --options runtime --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
+            codesign --force --options runtime --entitlements entitlements.plist --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
           done
-          codesign --force --deep --options runtime \
+          codesign --force --deep --options runtime --entitlements entitlements.plist \
             --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" \
             "$APP"
 
-          # Verify signature
           codesign --verify --deep --strict "$APP"
           echo "Signature OK"
 
-          # Zip for notarization
           ditto -c -k --keepParent "$APP" notarize.zip
 
-          # Submit for notarization
           xcrun notarytool submit notarize.zip \
             --key ~/private_keys/AuthKey_HY39BF4WZT.p8 \
             --key-id "$KEY_ID" \
             --issuer "$ISSUER_ID" \
             --wait
 
-          # Staple
           xcrun stapler staple "$APP"
 
-          # Create final signed zip
           ditto -c -k --keepParent "$APP" "PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip"
 
       - name: Upload signed build to FTP
