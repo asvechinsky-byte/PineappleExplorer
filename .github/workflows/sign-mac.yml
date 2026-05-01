@@ -87,7 +87,7 @@ jobs:
             --ftp-pasv
 
       - name: Upload signed build as workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: PineappleExplorer-mac-signed
           path: PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip
