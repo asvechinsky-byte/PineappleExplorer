@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 0.8.75)'
+        description: 'Version number (e.g. 0.9.1)'
         required: true
+      filename:
+        description: 'FTP zip filename without extension (default: PineappleExplorer-mac-arm64)'
+        required: false
+        default: 'PineappleExplorer-mac-arm64'
 
 jobs:
   sign-notarize:
@@ -33,9 +37,7 @@ jobs:
 
       - name: Download unsigned Mac build from FTP
         run: |
-          curl -u "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}" \
-            "ftp://giowm1258.siteground.biz/PineappleExplorer-mac-arm64.zip" \
-            -o unsigned.zip
+          curl -u "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}"             "ftp://giowm1258.siteground.biz/${{ github.event.inputs.filename }}.zip"             -o unsigned.zip
 
       - name: Extract, sign, and notarize
         env:
@@ -71,25 +73,17 @@ jobs:
 
           find "$APP" -type f | while read f; do
             if file "$f" 2>/dev/null | grep -q "Mach-O"; then
-              codesign --force --options runtime --entitlements entitlements.plist \
-                --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
+              codesign --force --options runtime --entitlements entitlements.plist                 --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" "$f" || true
             fi
           done
-          codesign --force --deep --options runtime --entitlements entitlements.plist \
-            --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)" \
-            "$APP"
+          codesign --force --deep --options runtime --entitlements entitlements.plist             --sign "Developer ID Application: Alex Svechinsky ($TEAM_ID)"             "$APP"
 
           codesign --verify --deep --strict "$APP"
           echo "Signature OK"
 
           ditto -c -k --keepParent "$APP" notarize.zip
 
-          xcrun notarytool submit notarize.zip \
-            --key ~/private_keys/AuthKey_HY39BF4WZT.p8 \
-            --key-id "$KEY_ID" \
-            --issuer "$ISSUER_ID" \
-            --wait \
-            --output-format json > notarize_result.json || true
+          xcrun notarytool submit notarize.zip             --key ~/private_keys/AuthKey_HY39BF4WZT.p8             --key-id "$KEY_ID"             --issuer "$ISSUER_ID"             --wait             --output-format json > notarize_result.json || true
 
           cat notarize_result.json
 
@@ -97,10 +91,7 @@ jobs:
           NOTARIZE_STATUS=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['status'])")
 
           echo "=== Apple Notarization Log ==="
-          xcrun notarytool log "$SUBMISSION_ID" \
-            --key ~/private_keys/AuthKey_HY39BF4WZT.p8 \
-            --key-id "$KEY_ID" \
-            --issuer "$ISSUER_ID" || true
+          xcrun notarytool log "$SUBMISSION_ID"             --key ~/private_keys/AuthKey_HY39BF4WZT.p8             --key-id "$KEY_ID"             --issuer "$ISSUER_ID" || true
 
           if [ "$NOTARIZE_STATUS" != "Accepted" ]; then
             echo "Notarization failed: $NOTARIZE_STATUS"
@@ -109,17 +100,14 @@ jobs:
 
           xcrun stapler staple "$APP"
 
-          ditto -c -k --keepParent "$APP" "PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip"
+          ditto -c -k --keepParent "$APP" "${{ github.event.inputs.filename }}-signed.zip"
 
       - name: Upload signed build to FTP
         run: |
-          curl -T "PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip" \
-            "ftp://giowm1258.siteground.biz/PineappleExplorer-mac-arm64.zip" \
-            --user "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}" \
-            --ftp-pasv
+          curl -T "${{ github.event.inputs.filename }}-signed.zip"             "ftp://giowm1258.siteground.biz/${{ github.event.inputs.filename }}.zip"             --user "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}"             --ftp-pasv
 
       - name: Upload signed build as workflow artifact
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: PineappleExplorer-mac-signed
-          path: PineappleExplorer-${{ github.event.inputs.version }}-mac-arm64.zip
+          name: PineappleExplorer-mac-signed-${{ github.event.inputs.version }}
+          path: ${{ github.event.inputs.filename }}-signed.zip
