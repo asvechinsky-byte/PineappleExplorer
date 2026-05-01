@@ -177,6 +177,10 @@ jobs:
 
       - name: Sign .app bundle
         run: |
+          # Re-unlock the keychain — actions/setup-dotnet can lock it
+          security unlock-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+
           # Remove macOS resource-fork / DS_Store artifacts before signing
           find PineappleExplorer.app -name "._*"       -delete
           find PineappleExplorer.app -name ".DS_Store" -delete
