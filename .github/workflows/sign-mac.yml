@@ -177,19 +177,13 @@ jobs:
 
       - name: Sign .app bundle
         run: |
-          # Debug: show what keychains and identities are available
-          echo "=== Keychains ==="
-          security list-keychains
-          echo "=== Identities (before unlock) ==="
-          security find-identity -v -p codesigning || true
-
-          # Re-unlock the keychain — actions/setup-dotnet can lock it
+          # actions/setup-dotnet removes build.keychain from the search list.
+          # Re-add it so codesign can find the private key, then unlock it.
+          security list-keychains -d user -s build.keychain login.keychain System.keychain
           security unlock-keychain -p actions build.keychain
           security default-keychain -s build.keychain
-          security set-keychain-settings build.keychain
-
-          echo "=== Identities (after unlock) ==="
-          security find-identity -v -p codesigning || true
+          # Re-grant codesign access to the key (partition list may be reset)
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions build.keychain
 
           # Remove macOS resource-fork / DS_Store artifacts before signing
           find PineappleExplorer.app -name "._*"       -delete
