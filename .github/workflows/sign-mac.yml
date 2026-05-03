@@ -215,19 +215,29 @@ jobs:
         run: |
           ditto -c -k --keepParent PineappleExplorer.app notarize.zip
 
-          xcrun notarytool submit notarize.zip \
-            --key     ~/private_keys/AuthKey_${{ env.KEY_ID }}.p8 \
-            --key-id  "${{ env.KEY_ID }}" \
-            --issuer  "${{ secrets.APPLE_API_ISSUER_ID }}" \
-            --wait \
-            --output-format json > notarize_result.json || true
+          # Retry up to 3 times — Apple's upload endpoint occasionally drops connections
+          for attempt in 1 2 3; do
+            echo "Notarization attempt $attempt..."
+            xcrun notarytool submit notarize.zip \
+              --key     ~/private_keys/AuthKey_${{ env.KEY_ID }}.p8 \
+              --key-id  "${{ env.KEY_ID }}" \
+              --issuer  "${{ secrets.APPLE_API_ISSUER_ID }}" \
+              --wait \
+              --output-format json > notarize_result.json 2>&1 && break
+            echo "Attempt $attempt failed. Waiting 30s before retry..."
+            sleep 30
+          done
 
           cat notarize_result.json
 
-          SUBMISSION_ID=$(python3 -c \
-            "import json; print(json.load(open('notarize_result.json'))['id'])")
-          NOTARIZE_STATUS=$(python3 -c \
-            "import json; print(json.load(open('notarize_result.json'))['status'])")
+          # Guard against empty result (e.g. all retries failed with a network error)
+          if ! python3 -c "import json; json.load(open('notarize_result.json'))" 2>/dev/null; then
+            echo "Notarization result is not valid JSON — all attempts failed."
+            exit 1
+          fi
+
+          SUBMISSION_ID=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['id'])")
+          NOTARIZE_STATUS=$(python3 -c "import json; print(json.load(open('notarize_result.json'))['status'])")
 
           echo "=== Apple Notarization Log ==="
           xcrun notarytool log "$SUBMISSION_ID" \
