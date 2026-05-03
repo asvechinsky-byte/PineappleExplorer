@@ -266,6 +266,13 @@ jobs:
             --user "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}" \
             --ftp-pasv
 
+      - name: Upload Setup.pkg to FTP
+        run: |
+          curl -T "vpk-out/PineappleExplorer-osx-arm64-Setup.pkg" \
+            "ftp://giowm1258.siteground.biz/${{ steps.names.outputs.dist_fn }}.pkg" \
+            --user "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}" \
+            --ftp-pasv
+
       # ── Upload Velopack nupkgs to GitHub Releases ────────────────────────
       - name: Delete existing osx-arm64 release assets (if re-running same version)
         env:
