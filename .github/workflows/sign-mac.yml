@@ -106,6 +106,19 @@ jobs:
           mkdir -p "$APP/Contents/MacOS"
           mkdir -p "$APP/Contents/Resources"
 
+          # Build .icns from the app.ico shipped in the publish output
+          ICONSET="AppIcon.iconset"
+          mkdir -p "$ICONSET"
+          # sips converts ICO → PNG at each required size
+          for SIZE in 16 32 64 128 256 512; do
+            sips -s format png pub/app.ico --resampleHeightWidth $SIZE $SIZE \
+              --out "$ICONSET/icon_${SIZE}x${SIZE}.png" 2>/dev/null || true
+            DOUBLE=$((SIZE * 2))
+            sips -s format png pub/app.ico --resampleHeightWidth $DOUBLE $DOUBLE \
+              --out "$ICONSET/icon_${SIZE}x${SIZE}@2x.png" 2>/dev/null || true
+          done
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+
           cat > "$APP/Contents/Info.plist" << PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -120,6 +133,8 @@ jobs:
               <string>Pineapple Explorer</string>
               <key>CFBundleDisplayName</key>
               <string>Pineapple Explorer</string>
+              <key>CFBundleIconFile</key>
+              <string>AppIcon</string>
               <key>CFBundleVersion</key>
               <string>${{ github.event.inputs.version }}</string>
               <key>CFBundleShortVersionString</key>
@@ -133,7 +148,7 @@ jobs:
               <key>LSMinimumSystemVersion</key>
               <string>12.0</string>
               <key>NSHumanReadableCopyright</key>
-              <string>Copyright © 2025 Alex Svechnikov. All rights reserved.</string>
+              <string>Copyright © 2025 Alex Svechinsky. All rights reserved.</string>
               <key>LSApplicationCategoryType</key>
               <string>public.app-category.photography</string>
               <key>NSRequiresAquaSystemAppearance</key>
