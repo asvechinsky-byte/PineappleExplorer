@@ -257,6 +257,40 @@ jobs:
             --ftp-pasv
 
       # ── Upload Velopack nupkgs to GitHub Releases ────────────────────────
+      - name: Delete existing osx-arm64 release assets (if re-running same version)
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          REPO="asvechinsky-byte/PineappleExplorer"
+
+          # Find release by tag name (vpk uses the version as tag)
+          RELEASE=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/$REPO/releases" \
+            | python3 -c "
+import json,sys
+releases=json.load(sys.stdin)
+r=next((r for r in releases if r['tag_name']=='"$VERSION"'), None)
+print(r['id'] if r else '')
+")
+          if [ -z "$RELEASE" ]; then
+            echo "No existing release for $VERSION — nothing to clean up."
+            exit 0
+          fi
+
+          echo "Found release id $RELEASE — deleting osx-arm64 assets..."
+          curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/$RELEASE/assets" \
+            | python3 -c "
+import json,sys
+for a in json.load(sys.stdin):
+    if 'osx-arm64' in a['name'] or a['name']=='releases.osx-arm64.json':
+        print(a['id'], a['name'])
+" | while read ASSET_ID ASSET_NAME; do
+            echo "  Deleting $ASSET_NAME ($ASSET_ID)"
+            curl -s -X DELETE -H "Authorization: Bearer $TOKEN" \
+              "https://api.github.com/repos/$REPO/releases/assets/$ASSET_ID"
+          done
+
       - name: Upload Velopack packages to GitHub Releases
         run: |
           PRE_FLAG=""
