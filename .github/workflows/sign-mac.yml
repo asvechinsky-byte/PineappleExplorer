@@ -162,6 +162,10 @@ jobs:
           security unlock-keychain -p actions "$KEYCHAIN"
           security import certificate.p12 -k "$KEYCHAIN" \
             -P "$P12_PASSWORD" -T /usr/bin/codesign -A
+          # Grant codesign partition access to the private key (required on macOS Catalina+)
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k actions "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" \
             $(security list-keychains -d user | tr -d '"' | xargs)
           rm certificate.p12
