@@ -185,6 +185,7 @@ jobs:
           # Pass --keychain explicitly to bypass the search list
           codesign --force --deep --options runtime \
             --entitlements entitlements.plist \
+            --keychain "$SIGNING_KEYCHAIN" \
             --sign "Developer ID Application: Alex Svechnikov (${{ env.TEAM_ID }})" \
             PineappleExplorer.app
 
