@@ -263,29 +263,12 @@ jobs:
           VERSION: ${{ github.event.inputs.version }}
         run: |
           REPO="asvechinsky-byte/PineappleExplorer"
-
-          # Find release ID for this version tag
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$REPO/releases/tags/$VERSION" \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id',''))")
-
-          if [ -z "$RELEASE_ID" ]; then
-            echo "No existing release for $VERSION — nothing to clean up."
-            exit 0
-          fi
-
-          echo "Found release $RELEASE_ID — deleting osx-arm64 assets..."
-          curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$REPO/releases/$RELEASE_ID/assets" \
-            | python3 -c "
-import json, sys
-for a in json.load(sys.stdin):
-    if 'osx-arm64' in a['name'] or a['name'] == 'releases.osx-arm64.json':
-        print(a['id'])
-" | while read -r ASSET_ID; do
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/releases/tags/$VERSION" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id',''))")
+          if [ -z "$RELEASE_ID" ]; then echo "No existing release for $VERSION."; exit 0; fi
+          echo "Found release $RELEASE_ID - deleting osx-arm64 assets..."
+          curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/releases/$RELEASE_ID/assets" | python3 -c "import json,sys; [print(a['id']) for a in json.load(sys.stdin) if 'osx-arm64' in a['name'] or a['name']=='releases.osx-arm64.json']" | while read -r ASSET_ID; do
             echo "  Deleting asset $ASSET_ID"
-            curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
-              "https://api.github.com/repos/$REPO/releases/assets/$ASSET_ID"
+            curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$REPO/releases/assets/$ASSET_ID"
           done
 
       - name: Upload Velopack packages to GitHub Releases
