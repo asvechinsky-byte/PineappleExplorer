@@ -190,7 +190,7 @@ jobs:
           codesign --force --deep --options runtime \
             --entitlements entitlements.plist \
             --keychain "$SIGNING_KEYCHAIN" \
-            --sign "Developer ID Application: Alex Svechnikov (${{ env.TEAM_ID }})" \
+            --sign "Developer ID Application: Alex Svechinsky (${{ env.TEAM_ID }})" \
             PineappleExplorer.app
 
           codesign --verify --deep --strict PineappleExplorer.app
