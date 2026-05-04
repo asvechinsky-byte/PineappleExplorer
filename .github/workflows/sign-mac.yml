@@ -277,7 +277,7 @@ jobs:
           # list so it can validate the trust chain via system/Apple intermediate certs.
           # The signing keychain is already in the search list from the import step.
           productsign \
-            --sign "Developer ID Installer: Alex Svechnikov (${{ env.TEAM_ID }})" \
+            --sign "Developer ID Installer: Alex Svechinsky (${{ env.TEAM_ID }})" \
             vpk-out/PineappleExplorer-osx-arm64-Setup.pkg \
             PineappleExplorer-signed.pkg
 
