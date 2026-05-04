@@ -292,15 +292,26 @@ jobs:
             --user "alex@explorer.astroframe.com:${{ secrets.FTP_PASSWORD }}" \
             --ftp-pasv
 
-      # ── Sign, notarize, and upload Setup.pkg ─────────────────────────────────
-      - name: Sign Setup.pkg
+      # ── Build distributable pkg from the signed+notarized .app ─────────────
+      # vpk's Setup.pkg payload contains binaries that vpk patches/injects during
+      # packing (PineappleExplorer itself, UpdateMac), making pre-signing them
+      # before vpk runs impossible. Instead, we build a fresh distributable pkg
+      # from the already-signed .app using pkgbuild — every binary inside is
+      # already properly signed and notarized.
+      - name: Create distributable pkg from signed .app
         run: |
-          # Note: no --keychain flag — productsign must search the full keychain
-          # list so it can validate the trust chain via system/Apple intermediate certs.
-          # The signing keychain is already in the search list from the import step.
+          pkgbuild \
+            --component PineappleExplorer.app \
+            --install-location /Applications \
+            --identifier com.astroframe.pineappleexplorer \
+            --version "${{ github.event.inputs.version }}" \
+            PineappleExplorer-installer.pkg
+
+      - name: Sign installer pkg
+        run: |
           productsign \
             --sign "Developer ID Installer: Alex Svechinsky (${{ env.TEAM_ID }})" \
-            vpk-out/PineappleExplorer-osx-arm64-Setup.pkg \
+            PineappleExplorer-installer.pkg \
             PineappleExplorer-signed.pkg
 
           pkgutil --check-signature PineappleExplorer-signed.pkg
