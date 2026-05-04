@@ -76,8 +76,10 @@ jobs:
           PLIST
 
       # ── Install .NET 9 + vpk BEFORE keychain setup ───────────────────────
-      # actions/setup-dotnet resets the keychain search list, so we must run
-      # all dotnet operations first, then import the certificate afterwards.
+      # actions/setup-dotnet resets the keychain search list. Only the ACTION
+      # step does this — running dotnet/vpk tools afterwards is safe.
+      # So: install SDK + vpk here, import cert next, then sign binaries,
+      # then run vpk pack (so the pkg bundles already-signed dylibs).
       - name: Install .NET 9 SDK (required by vpk 0.0.1298)
         uses: actions/setup-dotnet@v4
         with:
@@ -85,19 +87,6 @@ jobs:
 
       - name: Install vpk
         run: dotnet tool install -g vpk
-
-      # ── Velopack packaging (nupkgs for auto-update) ──────────────────────
-      - name: Package with vpk (creates Velopack nupkgs)
-        run: |
-          ~/.dotnet/tools/vpk pack \
-            --packId       PineappleExplorer \
-            --packVersion  ${{ github.event.inputs.version }} \
-            --packDir      pub \
-            --outputDir    vpk-out \
-            --channel      osx-arm64 \
-            --mainExe      PineappleExplorer \
-            --packAuthors  "Alex Svechnikov" \
-            --packTitle    "Pineapple Explorer"
 
       # ── Create distributable .app bundle for FTP (first-time install) ────
       - name: Create .app bundle
@@ -160,11 +149,9 @@ jobs:
           # Copy all publish files into MacOS/
           cp -r pub/. "$APP/Contents/MacOS/"
 
-      # ── Apple credentials — imported AFTER all dotnet operations ─────────
-      # Doing this after dotnet setup prevents setup-dotnet from resetting
-      # the keychain search list and breaking subsequent codesign calls.
-      # We store the keychain path and pass it explicitly to codesign via
-      # --keychain so the search list doesn't matter at all.
+      # ── Apple credentials — imported AFTER actions/setup-dotnet ─────────
+      # The setup-dotnet ACTION resets the keychain; running vpk/dotnet tools
+      # afterwards does not. Certificate is imported here; vpk pack runs after.
       - name: Import Developer ID certificate
         env:
           P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
@@ -193,6 +180,45 @@ jobs:
           mkdir -p ~/private_keys
           echo "$API_KEY_BASE64" | base64 --decode \
             > ~/private_keys/AuthKey_${{ env.KEY_ID }}.p8
+
+      # ── Sign all Mach-O binaries in pub/ BEFORE vpk packs them ─────────
+      # vpk embeds pub/ content into the Setup.pkg payload. Apple's notarization
+      # requires every dylib and executable inside the pkg to be individually
+      # signed with a Developer ID cert + hardened runtime + secure timestamp.
+      # Signing them here means vpk bundles already-signed content.
+      - name: Sign Mach-O binaries in publish output
+        run: |
+          SIGN="Developer ID Application: Alex Svechinsky (${{ env.TEAM_ID }})"
+
+          # Sign all dylibs and shared objects
+          find pub -name "*.dylib" -o -name "*.so" | while read f; do
+            codesign --force --options runtime --timestamp \
+              --keychain "$SIGNING_KEYCHAIN" \
+              --sign "$SIGN" "$f"
+          done
+
+          # Sign executables (main binary, Velopack updater, crash dump tool)
+          for bin in pub/PineappleExplorer pub/UpdateMac pub/createdump; do
+            [ -f "$bin" ] && codesign --force --options runtime --timestamp \
+              --entitlements entitlements.plist \
+              --keychain "$SIGNING_KEYCHAIN" \
+              --sign "$SIGN" "$bin"
+          done
+
+          echo "Mach-O binary signing complete"
+
+      # ── Velopack packaging — runs AFTER signing so pkg payload is signed ─
+      - name: Package with vpk (creates Velopack nupkgs)
+        run: |
+          ~/.dotnet/tools/vpk pack \
+            --packId       PineappleExplorer \
+            --packVersion  ${{ github.event.inputs.version }} \
+            --packDir      pub \
+            --outputDir    vpk-out \
+            --channel      osx-arm64 \
+            --mainExe      PineappleExplorer \
+            --packAuthors  "Alex Svechnikov" \
+            --packTitle    "Pineapple Explorer"
 
       # ── Sign and notarize the .app bundle ────────────────────────────────
       - name: Sign .app bundle
@@ -267,10 +293,6 @@ jobs:
             --ftp-pasv
 
       # ── Sign, notarize, and upload Setup.pkg ─────────────────────────────────
-      - name: List available signing identities
-        run: |
-          security find-identity -v -p basic "$SIGNING_KEYCHAIN"
-
       - name: Sign Setup.pkg
         run: |
           # Note: no --keychain flag — productsign must search the full keychain
