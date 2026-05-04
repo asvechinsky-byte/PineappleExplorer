@@ -267,6 +267,10 @@ jobs:
             --ftp-pasv
 
       # ── Sign, notarize, and upload Setup.pkg ─────────────────────────────────
+      - name: List available signing identities
+        run: |
+          security find-identity -v -p basic "$SIGNING_KEYCHAIN"
+
       - name: Sign Setup.pkg
         run: |
           productsign \
